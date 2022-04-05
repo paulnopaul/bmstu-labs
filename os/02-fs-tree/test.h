@@ -4,6 +4,9 @@
 #include <sys/stat.h>
 #include <stdlib.h>
 #include <dirent.h>
+#include <sys/select.h>
+
+fd_set x;
 
 
 #define V "│"
@@ -49,8 +52,6 @@ struct str_list *str_stack_pop(struct str_list *head, char *res, int *depth, ino
     struct str_list *new_head = head->next;
     free(head);
 
-    return new_head;
-}
 
 void spaces(int count) {
     for (int i = 0; i < count; ++i) putchar('\t');
