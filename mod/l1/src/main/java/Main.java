@@ -1,4 +1,3 @@
-
 import org.jfree.chart.ChartFactory;
 import org.jfree.chart.ChartPanel;
 import org.jfree.chart.JFreeChart;
@@ -21,7 +20,6 @@ import java.awt.Font;
 public class Main extends JFrame {
 
     public Main() {
-
         initUI();
     }
 
@@ -31,9 +29,15 @@ public class Main extends JFrame {
         JFreeChart chart = createChart(dataset);
 
         ChartPanel chartPanel = new ChartPanel(chart);
+        ChartPanel chartPanel2 = new ChartPanel(chart);
         chartPanel.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
         chartPanel.setBackground(Color.white);
+
+        chartPanel2.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
+        chartPanel2.setBackground(Color.white);
+
         add(chartPanel);
+        add(chartPanel2);
 
         pack();
         setTitle("Line chart");
@@ -42,27 +46,22 @@ public class Main extends JFrame {
     }
 
     private XYDataset createDataset() {
+        double h = Math.pow(10, -1);
+        double x0 = 0;
+        double y0 = 0;
+        double end = 2.0;
 
-        XYSeries series = new XYSeries("2016");
-        series.add(18, 567);
-        series.add(20, 612);
-        series.add(25, 800);
-        series.add(30, 980);
-        series.add(40, 1410);
-        series.add(50, 2350);
-
-       XYSeriesCollection dataset = new XYSeriesCollection();
-        dataset.addSeries(series);
-
-        return dataset;
+//        return new PicardDatasetBuilder(x0, y0, h, end, 4).build();
+//        return new EulerDatasetBuilder(x0, y0, h, end).build();
+        return new RungeKuttaDatasetBuilder(x0, y0, h, end).build();
     }
 
     private JFreeChart createChart(XYDataset dataset) {
 
         JFreeChart chart = ChartFactory.createXYLineChart(
-                "Average salary per age",
-                "Age",
-                "Salary (€)",
+                "Mathematics",
+                "X",
+                "Y",
                 dataset,
                 PlotOrientation.VERTICAL,
                 true,
@@ -73,8 +72,10 @@ public class Main extends JFrame {
         XYPlot plot = chart.getXYPlot();
 
         XYLineAndShapeRenderer renderer = new XYLineAndShapeRenderer();
+
         renderer.setSeriesPaint(0, Color.RED);
         renderer.setSeriesStroke(0, new BasicStroke(2.0f));
+        renderer.setSeriesShapesVisible(0, Boolean.FALSE);
 
         plot.setRenderer(renderer);
         plot.setBackgroundPaint(Color.white);
@@ -85,9 +86,10 @@ public class Main extends JFrame {
         plot.setDomainGridlinesVisible(true);
         plot.setDomainGridlinePaint(Color.BLACK);
 
+
         chart.getLegend().setFrame(BlockBorder.NONE);
 
-        chart.setTitle(new TextTitle("Average Salary per Age",
+        chart.setTitle(new TextTitle("methods",
                         new Font("Serif", java.awt.Font.BOLD, 18)
                 )
         );
