@@ -1,49 +1,29 @@
 #include <stdio.h>
 #include <string.h>
-#include <unistd.h>
 #include <sys/stat.h>
 #include <stdlib.h>
 #include <dirent.h>
+#include <errno.h>
+#include <unistd.h>
+
 
 typedef int Myfunc(const char *, const struct stat *, int);
 
 static Myfunc myfunc;
 
-static int dopath(Myfunc *, char *);
-
-static int myftw(char *, Myfunc *);
-
-static long nreg, ndir, nblk, nchr, nfifo, nslink, nsock, ntot;
+int do_path(char *start_path);
 
 int main(int argc, char *argv[]) {
     int ret;
-    if (argc != 2) {
-        printf("Usage: ftw <start directory>");
-        return 1;
-    }
-
-    ret = myftw(argv[1], myfunc);
-    ntot = nreg + ndir + nblk + nchr + nfifo + nslink + nsock;
-    if (ntot == 0)
-        ntot = 1;
-    printf("regular =           \t\t%ld, %5.2f %%\n", nreg, nreg * 100.0 / ntot);
-    printf("directories =       \t\t%ld, %5.2f %%\n", ndir, ndir * 100.0 / ntot);
-    printf("special block =     \t\t%ld, %5.2f %%\n", nblk, nblk * 100.0 / ntot);
-    printf("special symbol =    \t\t%ld, %5.2f %%\n", nchr, nchr * 100.0 / ntot);
-    printf("FIFO =              \t\t%ld, %5.2f %%\n", nfifo, nfifo * 100.0 / ntot);
-    printf("symbolic links =    \t\t%ld, %5.2f %%\n", nslink, nslink * 100.0 / ntot);
-    printf("sockets =           \t\t%ld, %5.2f %%\n", nsock, nsock * 100.0 / ntot);
+//    if (argc != 2) {
+//        printf("Usage: ftw <start directory>");
+//        return 1;
+//    }
+//
+//    ret = myftw(argv[1], myfunc);
+    ret = do_path(".");
     exit(ret);
 }
-
-
-#define FTW_F 1
-#define FTW_D 2
-#define FTW_DNR 3
-#define FTW_NS 4
-static char *fullpath;
-static size_t pathlen;
-#define NAME_MAX 1024
 
 typedef char sstring[1024];
 
@@ -72,8 +52,12 @@ struct str_list *str_stack_push(struct str_list *head, const char *str, int dept
 }
 
 struct str_list *str_stack_pop(struct str_list *head, char *res, int *depth) {
-    strcpy(res, head->str);
-    *depth = head->depth;
+    if (res) {
+        strcpy(res, head->str);
+    }
+    if (depth) {
+        *depth = head->depth;
+    }
 
     struct str_list *new_head = head->next;
     free(head);
@@ -81,110 +65,100 @@ struct str_list *str_stack_pop(struct str_list *head, char *res, int *depth) {
     return new_head;
 }
 
-static int myftw(char *pathname, Myfunc *func) {
-    return dopath(func, pathname);
+struct str_list *str_stack_clear(struct str_list *head) {
+    while (head) {
+        head = str_stack_pop(head, NULL, NULL);
+    }
+    return NULL;
 }
+
 
 void spaces(int count) {
     for (int i = 0; i < count; ++i) putchar('\t');
 }
 
-static int dopath(Myfunc *func, char *start_path) {
-    struct str_list *stack = new_str_list(start_path, 0);
-    struct stat statbuf;
-    struct dirent *dirp;
-    DIR *dp;
-    sstring full_path;
-    char *pos;
-    int ret, n, current_depth;
-
-    while (stack != NULL) {
-        stack = str_stack_pop(stack, full_path, &current_depth);
-        n = (int) strlen(full_path);
-
-        if (lstat(full_path, &statbuf) < 0) {
-            func(full_path, &statbuf, FTW_NS);
-        } else {
-            func(full_path, &statbuf, FTW_D);
-        }
-
-        pos = strrchr(full_path, '/');
-        pos = pos ? pos + 1 : full_path;
-        spaces(current_depth - 1);
-        printf("%s %s %llu\n", "├─", pos, statbuf.st_ino);
-
-        if ((dp = opendir(full_path)) == NULL) {
-            ret = func(fullpath, &statbuf, FTW_DNR);
+void handle_lstat_error(int error_num) {
+    switch (error_num) {
+        case EACCES:
+            puts("A component of the path prefix denies search permission.");
             break;
-        }
-
-        full_path[n++] = '/';
-        full_path[n] = 0;
-
-        while ((dirp = readdir(dp)) != NULL) {
-            strcpy(&full_path[n], dirp->d_name);
-            if (dirp->d_type != DT_DIR) {
-
-                if (lstat(full_path, &statbuf) < 0)
-                    func(full_path, &statbuf, FTW_NS);
-                else {
-                    func(full_path, &statbuf, FTW_F);
-                    spaces(current_depth);
-                    printf("%s %s %llu\n", "├─", strrchr(full_path, '/') + 1, statbuf.st_ino);
-                }
-            } else if (strcmp(dirp->d_name, ".") != 0 && strcmp(dirp->d_name, "..") != 0) {
-                stack = str_stack_push(stack, full_path, current_depth + 1);
-            }
-            full_path[n] = 0;
-        }
-        if (closedir(dp) < 0) {
-            printf("can't close directory %s", fullpath);
-        }
-    }
-
-    return (ret);
-}
-
-static int myfunc(const char *pathname, const struct stat *statptr, int type) {
-    switch (type) {
-        case FTW_F:
-            switch (statptr->st_mode & S_IFMT) {
-                case S_IFREG:
-                    nreg++;
-                    break;
-                case S_IFBLK:
-                    nblk++;
-                    break;
-                case S_IFCHR:
-                    nchr++;
-                    break;
-                case S_IFIFO:
-                    nfifo++;
-                    break;
-                case S_IFLNK:
-                    nslink++;
-                    break;
-                case S_IFSOCK:
-                    nsock++;
-                    break;
-                case S_IFDIR: {
-                    printf("IFDIR");
-                    return 0;
-                }
-            }
+        case EIO:
+            puts("An error occurred while reading from the file system.");
             break;
-        case FTW_D:
-            ndir++;
+        case ELOOP:
+            puts("Too many symbolic links were encountered in resolving path.");
             break;
-        case FTW_DNR: {
-            printf("закрыт доступ к каталогу %s", pathname);
-        }
+        case ENAMETOOLONG:
+            puts("The length of a pathname exceeds PATH_MAX, or pathname component is longer than NAME_MAX.");
             break;
-        case FTW_NS:
-            printf("ошибка вызова функции stat для %s", pathname);
+        case ENOTDIR:
+            puts("A component of the path prefix is not a directory.");
+            break;
+        case ENOENT:
+            puts("A component of path does not name an existing file or path is an empty string.");
+            break;
+        case EOVERFLOW:
+            printf("The file size in bytes or the number of blocks allocated to the file or the file serial number cannot be represented correctly in the structure pointed to by buf.");
             break;
         default:
-            printf("неизвестный тип %d для файла %s", type, pathname);
+            puts("Unknown error");
     }
-    return (0);
+}
+
+int do_path(char *start_path) {
+    struct str_list *stack = new_str_list(start_path, 0);
+    struct stat stat_buf;
+    struct dirent *dir_p;
+    DIR *dp;
+    sstring path, pathtext;
+    int current_depth, prev_depth;
+    prev_depth = 0;
+
+    while (stack != NULL) {
+        stack = str_stack_pop(stack, path, &current_depth);
+
+        if (current_depth <= prev_depth && current_depth > 0) {
+            for (int i = 0; i < prev_depth - current_depth + 1; ++i) chdir("..");
+        }
+
+        prev_depth = current_depth;
+
+        if (lstat(path, &stat_buf) < 0) {
+            printf("lstat error: %s current dir = %s path = %s cd = %d pd = %d\n", strerror(errno),
+                   getcwd(pathtext, 1024), path, current_depth, prev_depth);
+            handle_lstat_error(errno);
+            stack = str_stack_clear(stack);
+            return 1;
+        }
+
+        spaces(current_depth - 1);
+        printf("%s %s %llu\n", current_depth ? "├─" : "", path, stat_buf.st_ino);
+
+        if ((dp = opendir(path)) == NULL) {
+            perror("Can't open dir");
+            return 1;
+        }
+
+        chdir(path);
+
+        while ((dir_p = readdir(dp)) != NULL) {
+            if (dir_p->d_type != DT_DIR) {
+                if (lstat(dir_p->d_name, &stat_buf) < 0) {
+                    printf("lstat error: %s\n", strerror(errno));
+                    stack = str_stack_clear(stack);
+                    handle_lstat_error(errno);
+                    return 1;
+                } else {
+                    spaces(current_depth);
+                    printf("%s %s %llu\n", "├─", dir_p->d_name, stat_buf.st_ino);
+                }
+            } else if (strcmp(dir_p->d_name, ".") != 0 && strcmp(dir_p->d_name, "..") != 0) {
+                stack = str_stack_push(stack, dir_p->d_name, current_depth + 1);
+            }
+        }
+        if (closedir(dp) < 0) {
+            printf("can't close directory %s", path);
+        }
+    }
+
 }

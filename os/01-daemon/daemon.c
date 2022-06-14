@@ -99,7 +99,7 @@ int main() {
 
 	for (int i = 0; i < 20; ++i) {
 		sleep(1);
-		syslog(LOG_ERR, "MEOWMEOW");
+		syslog(LOG_ERR, "DAEMON IS WRITING");
 	}
 	return 0;
 }

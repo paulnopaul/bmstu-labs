@@ -1,8 +1,8 @@
 public class RungeKuttaDatasetBuilder extends DatasetBuilder{
-    double coeff;
-    public RungeKuttaDatasetBuilder(double x0, double y0, double h0, double end) {
+    double a;
+    public RungeKuttaDatasetBuilder(double x0, double y0, double h0, double end, double c) {
         super(x0, y0, h0, end, "runge kutta");
-        coeff = h / 2.;
+        a = c;
     }
 
     @Override
@@ -10,6 +10,6 @@ public class RungeKuttaDatasetBuilder extends DatasetBuilder{
         if (i > 0) {
             x += h;
         }
-        y += h * f(x + coeff, y + coeff * f(x, y));
+        y += h * ((1 - a) * f(x, y) + a * f(x + h/(2 * a), y + h * f(x, y) / (a * 2)));
     }
 }

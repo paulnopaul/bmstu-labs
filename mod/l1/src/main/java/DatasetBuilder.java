@@ -24,14 +24,20 @@ public abstract class DatasetBuilder {
         y = y0;
     }
 
-    public XYSeriesCollection build() {
+    public XYSeries build() {
 
         XYSeries series = new XYSeries(name);
 
         x = x0;
         y = y0;
+
+        System.out.printf("Values for %s method\n", name);
+        int step = n / 10;
         for (int i = 0; i < n; ++i) {
             next(i);
+            if (i % step == 0) {
+                System.out.printf("%d. %.2f %.2f\n", i / step, x, y);
+            }
             series.add(x, y);
         }
 
@@ -45,7 +51,7 @@ public abstract class DatasetBuilder {
 
         XYSeriesCollection dataset = new XYSeriesCollection();
         dataset.addSeries(series);
-        return dataset;
+        return series;
 
     }
 
