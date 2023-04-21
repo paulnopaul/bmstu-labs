@@ -1,2 +1,0 @@
-# bmstu-labs
-bmstu labs
